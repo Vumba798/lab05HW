@@ -29,6 +29,7 @@ $ source scripts/activate
 ```
 
 ```sh
+# Клонируем репозиторий с прошлой лабой
 $ git clone https://github.com/${GITHUB_USERNAME}/lab04 projects/lab05
 $ cd projects/lab05
 $ git remote remove origin
@@ -37,16 +38,19 @@ $ git remote add origin https://github.com/${GITHUB_USERNAME}/lab05
 
 ```sh
 $ mkdir third-party
-$ git submodule add https://github.com/google/googletest third-party/gtest
-$ cd third-party/gtest && git checkout release-1.8.1 && cd ../..
-$ git add third-party/gtest
+$ git submodule add https://github.com/google/googletest third-party/gtest # Подключаем к епозиторию подмодуль GoogleTest
+$ cd third-party/gtest && git checkout release-1.8.1 && cd ../.. # Настраиваем версию
+$ git add third-party/gtest # коммитим
 $ git commit -m"added gtest framework"
 ```
 
+
 ```sh
-$ gsed -i '/option(BUILD_EXAMPLES "Build examples" OFF)/a\
+# добавляем опцию для сборки тестов
+$ gsed -i '/option(BUILD_EXAMPLES "Build examples" OFF)/a\ 
 option(BUILD_TESTS "Build tests" OFF)
 ' CMakeLists.txt
+# вставка в конец файла
 $ cat >> CMakeLists.txt <<EOF
 
 if(BUILD_TESTS)
@@ -62,6 +66,7 @@ EOF
 
 ```sh
 $ mkdir tests
+# пишем первый тест
 $ cat > tests/test1.cpp <<EOF
 #include <print.hpp>
 
@@ -86,29 +91,32 @@ EOF
 ```
 
 ```sh
+# генерация файлов для сборки с тестом
 $ cmake -H. -B_build -DBUILD_TESTS=ON
-$ cmake --build _build
-$ cmake --build _build --target test
+$ cmake --build _build # сборка проекта
+$ cmake --build _build --target test # сборка проекта и теста
 ```
 
 ```sh
-$ _build/check
-$ cmake --build _build --target test -- ARGS=--verbose
+$ _build/check # запуск теста
+$ cmake --build _build --target test -- ARGS=--verbose # запуск с полным выводом
 ```
 
 ```sh
-$ gsed -i 's/lab04/lab05/g' README.md
-$ gsed -i 's/\(DCMAKE_INSTALL_PREFIX=_install\)/\1 -DBUILD_TESTS=ON/' .travis.yml
+# модифицируем .travis.yml
+$ gsed -i 's/lab04/lab05/g' README.md 
+$ gsed -i 's/\(DCMAKE_INSTALL_PREFIX=_install\)/\1 -DBUILD_TESTS=ON/' .travis.yml 
 $ gsed -i '/cmake --build _build --target install/a\
-- cmake --build _build --target test -- ARGS=--verbose
+- cmake --build _build --target test -- ARGS=--verbose 
 ' .travis.yml
 ```
 
 ```sh
-$ travis lint
+$ travis lint # проверяем travis.yml на наличие ошибок
 ```
 
 ```sh
+# заливаем в удаленный репозиторий
 $ git add .travis.yml
 $ git add tests
 $ git add -p
@@ -117,11 +125,13 @@ $ git push origin master
 ```
 
 ```sh
+# включаем travis
 $ travis login --auto
 $ travis enable
 ```
 
 ```sh
+# делаем скриншот
 $ mkdir artifacts
 $ sleep 20s && gnome-screenshot --file artifacts/screenshot.png
 # for macOS: $ screencapture -T 20 artifacts/screenshot.png
