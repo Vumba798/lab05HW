@@ -34,10 +34,3 @@ if (BUILD_TESTS)
         endif(COVERAGE)
     endif(TARGET libbanking)
 endif(BUILD_TESTS)
-
-
-before_install:
-- pip install --user cpp-coveralls
-
-after_success:
-- coveralls --root . -E ".*gtest.*" -E ".*CMakeFiles.*"
