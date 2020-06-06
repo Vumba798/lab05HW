@@ -161,6 +161,196 @@ $ gist REPORT.md
 3. Настройте сборочную процедуру на **TravisCI**.
 4. Настройте [Coveralls.io](https://coveralls.io/).
 
+
+## Report
+1. Создадим CMakeList.txt в директории banking
+```sh
+$ cat > banking/CMakeLists.txt <<EOF
+project(banking_lib)
+
+if (NOT TARGET libbanking)
+    add_library(libbanking STATIC
+        ${CMAKE_CURRENT_LIST_DIR}/Account.cpp
+        ${CMAKE_CURRENT_LIST_DIR}/Transaction.cpp
+    )
+
+    install(TARGETS libbanking
+        ARCHIVE DESTINATION lib
+        LIBRARY DESTINATION lib
+    )
+endif(NOT TARGET libbanking)
+
+include_directories(${CMAKE_CURRENT_LIST_DIR})
+EOF
+```
+
+2. Напишем тесты отдельно для класса Transaction:
+
+```cpp
+#include "Account.h"
+#include "Transaction.h"
+
+#include <gtest/gtest.h>
+#include <gmock/gmock.h>
+
+using testing::_;
+
+class TransactionMock : public Transaction {
+public:
+    MOCK_METHOD3(Make, bool(Account& from, Account& to, int sum));
+};
+
+TEST(Transaction, Mock) {
+    TransactionMock tr;
+    Account acc1(1, 100);
+    Account acc2(2, 300);
+
+    EXPECT_CALL(tr, Make(_, _, _)).Times(5);
+    tr.set_fee(200);
+    tr.Make(acc1, acc2, 200);
+    tr.Make(acc2, acc1, 300);
+    // throws
+    tr.Make(acc2, acc1, 50);
+    tr.Make(acc2, acc1, 0);
+    tr.Make(acc1, acc2, -8);
+}
+
+TEST(Transaction, TestTransaction) {
+    Transaction tr;
+    Account a1(1, 100), a2(2, 300);
+    tr.set_fee(10);
+    EXPECT_EQ(tr.fee(), 10);
+    EXPECT_THROW(tr.Make(a1, a2, 90), std::logic_error);
+    EXPECT_THROW(tr.Make(a1, a2, -1), std::invalid_argument);
+    EXPECT_THROW(tr.Make(a1, a1, 100), std::logic_error);
+    EXPECT_FALSE(tr.Make(a1, a2, 400));
+    EXPECT_FALSE(tr.Make(a2, a1, 300));
+    EXPECT_TRUE(tr.Make(a2, a1, 246));
+}
+```
+
+И отдельно для Account:
+
+```cpp
+
+```#include "Account.h"
+#include "Transaction.h"
+
+#include <gtest/gtest.h>
+#include <gmock/gmock.h>
+
+using testing::_;
+
+class AccountMock : public Account {
+public:
+    explicit AccountMock(int id, int balance) : Account(id, balance) {}
+    MOCK_CONST_METHOD0(GetBalance, int());
+    MOCK_METHOD1(ChangeBalance, void(int diff));
+    MOCK_METHOD0(Lock, void());
+    MOCK_METHOD0(Unlock, void());
+};
+
+TEST(Account, Mock) {
+    AccountMock acc(1, 666);
+    EXPECT_CALL(acc, GetBalance()).Times(1);
+    EXPECT_CALL(acc, ChangeBalance(_)).Times(2);
+    EXPECT_CALL(acc, Lock()).Times(2);
+    EXPECT_CALL(acc, Unlock()).Times(1);
+    acc.GetBalance();
+    acc.ChangeBalance(100);
+    acc.Lock();
+    acc.ChangeBalance(100);
+    acc.Lock();
+    acc.Unlock();
+}
+
+TEST(Account, TestAccount) {
+    Account acc(1, 666);
+    EXPECT_EQ(acc.id(), 1);
+    EXPECT_EQ(acc.GetBalance(), 666);
+    EXPECT_THROW(acc.ChangeBalance(200), std::runtime_error);
+    EXPECT_NO_THROW(acc.Lock());
+    acc.ChangeBalance(200);
+    EXPECT_EQ(acc.GetBalance(), 866);
+    EXPECT_THROW(acc.Lock(), std::runtime_error);
+    EXPECT_NO_THROW(acc.Unlock());
+}
+```
+
+
+CMakeLists.txt для сборки с тестами:
+```sh
+project(banking)
+
+cmake_minimum_required(VERSION 3.4)
+
+set(CMAKE_CXX_STANDART 11)
+set(CMAKE_CXX_STANDART_REQUIRED ON)
+
+option(BUILD_TESTS "Build tests" OFF)
+
+option(COVERAGE ON)
+
+include(${CMAKE_CURRENT_SOURCE_DIR}/banking/CMakeLists.txt)
+
+if (BUILD_TESTS)
+    enable_testing()
+    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/third-party/gtest)
+    if (TARGET libbanking)
+        # test Account module
+        add_executable(check_account ${CMAKE_CURRENT_SOURCE_DIR}/banking/tests/test_account.cpp)
+        target_link_libraries(check_account libbanking gtest_main gmock_main)
+        add_test(NAME account COMMAND check_account)
+
+        # test Transaction module
+        add_executable(check_transaction ${CMAKE_CURRENT_SOURCE_DIR}/banking/tests/test_transaction.cpp)
+        target_link_libraries(check_transaction libbanking gtest_main gmock_main)
+        add_test(NAME transaction COMMAND check_transaction)
+
+        if (COVERAGE)
+            target_compile_options(check_account PRIVATE --coverage)
+            target_compile_options(check_transaction PRIVATE --coverage)
+
+            target_link_libraries(check_account --coverage)
+            target_link_libraries(check_transaction --coverage)
+        endif(COVERAGE)
+    endif(TARGET libbanking)
+endif(BUILD_TESTS)
+
+before_install:
+- pip install --user cpp-coveralls
+
+after_success:
+- coveralls --root . -E ".*gtest.*" -E ".*CMakeFiles.*"
+```
+
+файл travis.yml:
+```sh
+language: cpp
+os:
+  - linux
+addons:
+  apt:
+    sources:
+    - george-edison55-precise-backports
+    packages:
+    - cmake
+    - cmake-data
+script:
+- cmake -H. -B_build -DBUILD_TESTS=ON
+- cmake --build _build
+- cmake --build _build --target test -- ARGS=--verbose
+before_install:
+- pip install --user cpp-coveralls
+after_success:
+- coveralls --root . -E ".*gtest.*" -E ".*CMakeFiles.*"
+```
+
+файл coveralls.yml:
+```
+service_name: travis-pro
+repo_token: <мой_токен>
+```
 ## Links
 
 - [C++ CI: Travis, CMake, GTest, Coveralls & Appveyor](http://david-grs.github.io/cpp-clang-travis-cmake-gtest-coveralls-appveyor/)
