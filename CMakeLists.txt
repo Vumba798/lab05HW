@@ -1,21 +1,36 @@
-cmake_minimum_required(VERSION 3.4)
-
-set(CMAKE_CXX_STANDARD 11)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
-option(BUILD_TEST "Build tests" OFF)
-#option(COVERAGE "Check coverage" ON)
-
 project(banking)
 
-add_library(banking STATIC banking/Account.cpp banking/Transaction.cpp)
-target_include_directories(banking PUBLIC banking/)
+cmake_minimum_required(VERSION 3.4)
 
-if(BUILD_TESTS)
-	enable_testing()
-	add_subdirectory(submodules/gtest)
-	add_executable(check tests/tests.cpp)
-	target_link_libraries(check banking gtest_main gmock_main)
-	add_test(NAME check COMMAND check)
-endif()
+set(CMAKE_CXX_STANDART 11)
+set(CMAKE_CXX_STANDART_REQUIRED ON)
 
+option(BUILD_TESTS "Build tests" OFF)
+
+option(COVERAGE ON)
+
+include(${CMAKE_CURRENT_SOURCE_DIR}/banking/CMakeLists.txt)
+
+if (BUILD_TESTS)
+    enable_testing()
+    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/third-party/gtest)
+    if (TARGET libbanking)
+        # test Account module
+        add_executable(check_account ${CMAKE_CURRENT_SOURCE_DIR}/banking/tests/test_account.cpp)
+        target_link_libraries(check_account libbanking gtest_main gmock_main)
+        add_test(NAME account COMMAND check_account)
+
+        # test Transaction module
+        add_executable(check_transaction ${CMAKE_CURRENT_SOURCE_DIR}/banking/tests/test_transaction.cpp)
+        target_link_libraries(check_transaction libbanking gtest_main gmock_main)
+        add_test(NAME transaction COMMAND check_transaction)
+
+        if (COVERAGE)
+            target_compile_options(check_account PRIVATE --coverage)
+            target_compile_options(check_transaction PRIVATE --coverage)
+
+            target_link_libraries(check_account --coverage)
+            target_link_libraries(check_transaction --coverage)
+        endif(COVERAGE)
+    endif(TARGET libbanking)
+endif(BUILD_TESTS)
